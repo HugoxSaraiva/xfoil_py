@@ -19,8 +19,8 @@ class UserOptions:
                             help="Save name or path of xfoil polar file. Names with 'tmp_' are deleted automatically."
                                  "\nSave name will be 'save_name-N-name-M-mach-R-reynolds' if xfoil is running multiple"
                                  " runs or save_name otherwise")
-        parser.add_argument("-x", "--executable", type=str, dest="executable_path", default="xfoil",
-                            help="Path to executable. Default behaviour is to assume xfoil is on your PATH")
+        parser.add_argument("-x", "--executable", type=str, dest="executable_path", default=None,
+                            help="Path to executable. Default behaviour is to use xfoil on /runs directory")
         parser.add_argument("-t", "--threads", type=int, dest="max_threads", default=4,
                             help="Max threads to run xfoil in parallel. Default value is 4.")
         parser.add_argument('-p', '--plot', type=str, dest="plot", nargs=2,

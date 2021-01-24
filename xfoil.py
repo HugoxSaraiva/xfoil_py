@@ -11,6 +11,7 @@ from scipy.special import comb
 from threading import Timer
 from utils.user_options import UserOptions
 from utils.utils import add_prefix_suffix, random_string, path_leaf
+from definitions import EXEC_DIR
 # TODO: use BezierSegment from matplotlib
 
 
@@ -24,7 +25,7 @@ class XFoil:
             alpha_max,
             alpha_step,
             save_polar_name=None,
-            executable_path="xfoil"
+            executable_path=None
     ):
         logging.info("Initializing XFoil class")
         # Attributes to use with xfoil
@@ -49,7 +50,7 @@ class XFoil:
         self.process_timeout = 30
 
         # Attributes to use in XFoil class
-        self.executable = executable_path
+        self.executable = [executable_path if executable_path else EXEC_DIR]
         self.process = None
         self.stdout = None
         self.err = None
@@ -69,6 +70,7 @@ class XFoil:
         self._file_cleanup()
 
         logging.info("Opening subprocess")
+        logging.debug(f"Executable path is {self.executable}")
         # Open subprocess to run xfoil
         try:
             self.process = sp.Popen(
