@@ -41,8 +41,6 @@ This can be done by opening a terminal in the project root and typing:
     pip install -r requirements.txt
 
 ## Code Examples
-Examples of usage:
-
 ###### xfoil.py as a script:
 Runs xfoil on NACA 0012 airfoil with parameters: 
 
