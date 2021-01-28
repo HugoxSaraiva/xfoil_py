@@ -1,5 +1,4 @@
 import concurrent.futures as future
-import itertools
 import logging
 import numpy as np
 import os
@@ -10,7 +9,7 @@ from matplotlib import pyplot as plt
 from scipy.special import comb
 from threading import Timer
 from utils.user_options import UserOptions
-from utils.utils import add_prefix_suffix, random_string, path_leaf
+from utils.utils import *
 from definitions import EXEC_DIR
 # TODO: use BezierSegment from matplotlib
 
@@ -30,13 +29,11 @@ class XFoil:
         logging.info("Initializing XFoil class")
         # Attributes to use with xfoil
         self.name = name
-
         if save_polar_name:
             self.save_polar_name = add_prefix_suffix(save_polar_name, suffix=".txt")
         else:
             self.save_polar_name = add_prefix_suffix(random_string(), prefix="tmp_", suffix=".txt")
-
-        self.mach = mach
+        self.mach = float(mach)
         self.reynolds = reynolds
         self.alpha_min = alpha_min
         self.alpha_max = alpha_max
@@ -47,14 +44,14 @@ class XFoil:
         self.panels = 300
         self.iter = 100
         self.n_crit = 9
-        self.process_timeout = 30
+        self._process_timeout = 30
 
         # Attributes to use in XFoil class
-        self.executable = [executable_path if executable_path else EXEC_DIR]
-        self.process = None
-        self.stdout = None
-        self.err = None
-        self.disable_graphics = True
+        self._executable = [executable_path if executable_path else EXEC_DIR]
+        self._process = None
+        self._stdout = None
+        self._err = None
+        self._disable_graphics = True
 
         debug_msg = "XFoil class initialized with properties: name: {} mach: {} reynolds: {} alphas: {} {} {}"
         logging.debug(debug_msg.format(self.name, mach, reynolds, alpha_min, alpha_max, alpha_step))
@@ -70,28 +67,28 @@ class XFoil:
         self._file_cleanup()
 
         logging.info("Opening subprocess")
-        logging.debug(f"Executable path is {self.executable}")
+        logging.debug(f"Executable path is {self._executable}")
         # Open subprocess to run xfoil
         try:
-            self.process = sp.Popen(
-                self.executable,
+            self._process = sp.Popen(
+                self._executable,
                 stdin=sp.PIPE,
                 stdout=sp.PIPE,
                 stderr=sp.PIPE
             )
         except FileNotFoundError:
-            raise ExecutableNotFoundError(f"Executable {self.executable} not found")
+            raise ExecutableNotFoundError(f"Executable {self._executable} not found")
 
         logging.info("Communicating input string to subprocess")
         # Kills process if it takes too long
-        timer = Timer(self.process_timeout, self.__kill_process)
+        timer = Timer(self._process_timeout, self.__kill_process)
         try:
             timer.start()
-            stdout, err = self.process.communicate("".join(self._input_string).encode())
+            stdout, err = self._process.communicate("".join(self._input_string).encode())
 
             # Store stdout and err for debugging
-            self.stdout = stdout.decode()
-            self.err = err.decode() if err.decode() else None
+            self._stdout = stdout.decode()
+            self._err = err.decode() if err.decode() else None
 
             logging.info("Proceeding to read polar file")
             # Reading polar text file to get results
@@ -131,7 +128,7 @@ class XFoil:
 
     @property
     def _is_naca(self):
-        return self.__valid_naca(self.name)
+        return self._valid_naca(self.name)
 
     @property
     def _input_string(self):
@@ -145,7 +142,7 @@ class XFoil:
             input_string.append(f"{self.name}\n")
 
         # Disabling airfoil plotter from appearing
-        if self.disable_graphics:
+        if self._disable_graphics:
             input_string.append("plop\n")
             input_string.append("g 0\n\n")
 
@@ -183,7 +180,7 @@ class XFoil:
               "(?<=CDp\s=\s)[\s-]?\d*\.\d*)"
         regex = re.compile(exp)
 
-        data = regex.findall(self.stdout)
+        data = regex.findall(self._stdout)
         a = []
         cl = []
         cd = []
@@ -209,11 +206,11 @@ class XFoil:
                 'xtr_top': np.array(xtr_top), 'xtr_bottom': np.array(xtr_bottom)}
 
     def __kill_process(self):
-        self.process.kill()
+        self._process.kill()
         logging.warning("Process killed due to timeout")
 
     @staticmethod
-    def __valid_naca(string):
+    def _valid_naca(string):
         """
         Gets an input string and returns true if it is a 4 or 5 digit naca number and returns false if it isn't
         :param string: string
@@ -222,7 +219,7 @@ class XFoil:
         return string.isdigit() and (len(string) in [4, 5])
 
     @staticmethod
-    def __bezier_curve_2d(control_points):
+    def _bezier_curve_2d(control_points):
         """
         Returns a function that calculates the x,y values of the corresponding bezier curve given the control points
         :param control_points: list of control points
@@ -331,8 +328,8 @@ class XFoil:
 
         upper_control_points = np.array(upper_control_points).reshape((-1, 2))
         lower_control_points = np.array(lower_control_points).reshape((-1, 2))
-        upper_curve = XFoil.__bezier_curve_2d(upper_control_points)
-        lower_curve = XFoil.__bezier_curve_2d(lower_control_points)
+        upper_curve = XFoil._bezier_curve_2d(upper_control_points)
+        lower_curve = XFoil._bezier_curve_2d(lower_control_points)
 
         # Generate varying x increments for better resolution around trailing and leading edges
         dt = np.linspace(0, 1, 80)
@@ -401,14 +398,14 @@ class ExecutableNotFoundError(Exception):
     pass
 
 
-def __run_xfoil(name, mach, reynolds, save_polar_name, args, plot=False):
+def _run_xfoil_worker(name, mach, reynolds, alphas, save_polar_name, args, plot=False):
     xfoil = XFoil(
         name,
         mach,
         reynolds,
-        args.alphas[0],
-        args.alphas[1],
-        args.alphas[2],
+        alphas[0],
+        alphas[1],
+        alphas[2],
         save_polar_name,
         args.executable_path
     )
@@ -428,34 +425,57 @@ def main(arguments):
         stream=sys.stdout
     )
     logging.getLogger("matplotlib.font_manager").setLevel(logging.WARNING)
+
     if args.show:
         XFoil.plot_airfoil(args.name)
         return
 
     # Support running multiple airfoils with mach/reynolds configurations in parallel
-    if len(args.name) > 1 or len(args.mach) > 1 or len(args.reynolds) > 1:
-        fill_value = args.mach[-1] if len(args.mach) <= len(args.reynolds) else args.reynolds[-1]
-        mach_reynolds_iterator = itertools.zip_longest(args.mach, args.reynolds, fillvalue=fill_value)
-        args_iterator = itertools.product(args.name, mach_reynolds_iterator)
+    if max(len(args.name), len(args.mach), len(args.reynolds), len(args.alphas)/3) > 1:
+        logging.info("Multiple test arguments detected, proceeding to run computations in parallel")
 
-        save_polar_name = args.save_polar_name.replace(".txt", "") + "-N-{}-M-{}-R-{}"
+        # Setting up args for all test cases to be ran in parallel
+        alphas_array = np.array(args.alphas).reshape(-1, 3)
+        m_r_a_iterator = zip_longest_modified(args.mach,
+                                              args.reynolds,
+                                              alphas_array,
+                                              fillvalue=[args.mach[-1], args.reynolds[-1], alphas_array[-1]])
+        args_iterator = itertools.product(args.name, m_r_a_iterator)
+        if args.save_polar_name:
+            save_name_skeleton = args.save_polar_name.replace(".txt", "") + "-N-{}-M-{}-R-{}-A-{}-{}-{}"
+        else:
+            save_name_skeleton = ""
 
         with future.ThreadPoolExecutor(max_workers=args.max_threads) as executor:
             # Start the load operations and mark each future with its URL
             futures = [
-                executor.submit(__run_xfoil,
+                executor.submit(_run_xfoil_worker,
                                 name,
                                 mach,
                                 reynolds,
-                                save_polar_name.format(path_leaf(name), str(mach).replace('.', ''), reynolds),
+                                alphas,
+                                save_name_skeleton.format(path_leaf(name),
+                                                          str(mach).replace('.', '_'),
+                                                          reynolds,
+                                                          str(alphas[0]).replace('.', '_'),
+                                                          str(alphas[1]).replace('.', '_'),
+                                                          str(alphas[2]).replace('.', '_'),
+                                                          ),
                                 args
-                                ) for name, (mach, reynolds) in args_iterator
+                                ) for name, (mach, reynolds, alphas) in args_iterator
             ]
             executor.shutdown(wait=True)
             return [thread.result() for thread in futures]
     else:
         # Running xfoil only once, save_polar_name can be simpler
-        return __run_xfoil(args.name[0], args.mach[0], args.reynolds[0], args.save_polar_name, args, True)
+        logging.info("Running single computation")
+        return _run_xfoil_worker(args.name[0],
+                                 args.mach[0],
+                                 args.reynolds[0],
+                                 args.alphas,
+                                 args.save_polar_name,
+                                 args,
+                                 plot=True)
 
 
 if __name__ == "__main__":

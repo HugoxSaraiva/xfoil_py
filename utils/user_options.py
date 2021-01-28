@@ -13,12 +13,12 @@ class UserOptions:
                             help="Mach used to run xfoil")
         parser.add_argument('-r', '--reynolds', type=int, dest="reynolds", required=True, nargs='+',
                             help="Reynolds used to run xfoil.")
-        parser.add_argument('-a', '--alpha', type=float, dest="alphas", nargs=3, default=[0, 15, 0.5],
+        parser.add_argument('-a', '--alpha', type=float, dest="alphas", nargs='+', default=[0, 15, 0.5],
                             help='alpha_min, alpha_max, alpha_step used to run xfoil, default is 0, 15, 0.5')
-        parser.add_argument('-s', '--save-polar', type=str, dest="save_polar_name", default="polar.txt",
+        parser.add_argument('-s', '--save-polar', type=str, dest="save_polar_name",
                             help="Save name or path of xfoil polar file. Names with 'tmp_' are deleted automatically."
-                                 "\nSave name will be 'save_name-N-name-M-mach-R-reynolds' if xfoil is running multiple"
-                                 " runs or save_name otherwise")
+                                 "\nSave name will be 'save_name-N-name-M-mach-R-reynolds-A-alphamin-alphamax-step' "
+                                 "if xfoil is running multiple runs, or save_name otherwise")
         parser.add_argument("-x", "--executable", type=str, dest="executable_path", default=None,
                             help="Path to executable. Default behaviour is to use xfoil on /runs directory")
         parser.add_argument("-t", "--threads", type=int, dest="max_threads", default=4,

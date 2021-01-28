@@ -71,8 +71,7 @@ class XFoilTestCase(unittest.TestCase):
     # Test if XFoil class is returning the correct result
     @unittest.skipIf(fast_test, "Skip testing data for a faster test")
     def test_results(self):
-        args_test_1 = "-n 0012 4412 4508 -m 0.5 -r 31000000 -a -5 15 0.5 -s tmp_args_run -d".split()
-        args_test_2 = "-n 0012 4412 4508 -m 0.2 -r 18000000 -a 0 15 1 -s tmp_args_run -d".split()
+        args = "-n 0012 4412 4508 -m 0.5 0.2 -r 31000000 18000000 -a -5 15 0.5 0 15 1 -t 6 -d".split()
         nacas = [
             "0012",
             "4412",
@@ -82,9 +81,7 @@ class XFoilTestCase(unittest.TestCase):
             [0.5, 31000000, -5, 15, 0.5],
             [0.2, 18000000, 0, 15, 1]
         ]
-        results = xfoil.main(args_test_1)
-        results.extend(xfoil.main(args_test_2))
-        idx = [0, 3, 1, 4, 2, 5]
+        results = xfoil.main(args)
         # Checking if files created have correct results
         for i, (naca, test_case) in enumerate(itertools.product(nacas, test_cases), 1):
             xfoil_fortran = pd.read_csv(
@@ -93,7 +90,7 @@ class XFoilTestCase(unittest.TestCase):
                 skipinitialspace=True,
                 skiprows=[x for x in range(12) if x != 10]
             )
-            xfoil_python = pd.DataFrame.from_dict(results[idx[i-1]])
+            xfoil_python = pd.DataFrame.from_dict(results[i-1])
             xfoil_python.columns = xfoil_fortran.columns
 
             # Using np.isclose() to check if values in array are close ignoring floating point errors
