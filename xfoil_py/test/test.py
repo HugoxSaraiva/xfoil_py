@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import itertools
-import xfoil
+from xfoil_py import xfoil
 
 
 class XFoilTestCase(unittest.TestCase):
