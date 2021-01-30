@@ -1,5 +1,5 @@
 # xfoil_py
-> xfoil_py is a python project that makes the use of the xfoil more accessible in Python.
+> xfoil_py is a python package that makes the use of the xfoil more accessible in Python.
 
 ## Table of contents
 * [General info](#general-info)
@@ -13,32 +13,36 @@
 ## General info
 The xfoil executable (coded in FORTRAN) is known by its usefulness and accuracy in calculating aerodynamic coefficients,
 such as the lift coefficient and the drag coefficient. xfoil_py is intended to further improve the usability of xfoil by 
-enabling parallel computing for multiple airfoils and test cases, and by reading the results automatically.
-xfoil_py can be used as a script or imported as a module.
+enabling parallel computing of multiple airfoils and test cases, and by reading the results automatically.
+xfoil_py can be used as a script or imported as a package.
 
 ## Screenshots
 None at the moment
 
 ## Setup
 ###### Linux:
+**(In development)\
+xfoil_py can only run on linux as a script at the moment.**
+\
+\
 Users must certify that they have xfoil running correctly before using this project.
 
 For this project to be able to run, packages in requirements.txt must be installed in your Python environment.
-This can be done by opening a terminal in the project root and typing:
+This can be done by opening a terminal in the folder xfoil_py inside the project root and typing:
 
     pip install -r requirements.txt
 
 xfoil_py assumes by default that the xfoil binary is located in the "runs" folder. A symbolic link of the previously 
-installed xfoil binary can be created in the runs folder to enable xfoil_py to use it by default. The user can
+installed xfoil binary can be created in the runs folder for it to be used by default. The user can
 also specify the argument -x "PATH_TO_BINARY" when running xfoil.py as a script or specify "executable_path" when 
 instantiating an XFoil class.
 
 ###### Windows:
 Windows' users don't need to have xfoil.exe previously installed since the executable comes in the "runs" folder.
-All that is needed is to have the Python packages on requirements.txt installed in your Python environment.
+All that is needed is to run the setup file in order to have all required packages installed in your Python environment.
 This can be done by opening a terminal in the project root and typing:
 
-    pip install -r requirements.txt
+    pip install .
 
 ## Code Examples
 ###### xfoil.py as a script:

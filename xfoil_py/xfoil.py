@@ -8,9 +8,9 @@ import sys
 from matplotlib import pyplot as plt
 from scipy.special import comb
 from threading import Timer
-from utils.user_options import UserOptions
-from utils.utils import *
-from definitions import EXEC_DIR
+from xfoil_py.utils.user_options import UserOptions
+from xfoil_py.utils.utils import *
+from xfoil_py.definitions import EXEC_DIR
 # TODO: use BezierSegment from matplotlib
 
 
