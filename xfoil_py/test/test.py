@@ -98,11 +98,14 @@ class XFoilTestCase(unittest.TestCase):
                 skipinitialspace=True,
                 skiprows=[x for x in range(12) if x != 10]
             )
-            if xfoil_python.shape == xfoil_fortran_dp.shape:
+            if len(xfoil_python) == len(xfoil_fortran_dp):
                 print("Double Precision detected")
                 xfoil_fortran = xfoil_fortran_dp
             else:
                 xfoil_fortran = xfoil_fortran_sp
+            print(xfoil_python)
+
+            print(xfoil_fortran)
             # Using np.isclose() to check if values in array are close ignoring floating point errors
             self.assertTrue(np.isclose(xfoil_python.values, xfoil_fortran.values).all())
 
@@ -131,7 +134,7 @@ class XFoilTestCase(unittest.TestCase):
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
         )
-        if xfoil_args.shape == xfoil_fortran_dp.shape:
+        if len(xfoil_args) == len(xfoil_fortran_dp):
             print("Double Precision detected")
             xfoil_fortran = xfoil_fortran_dp
         else:
@@ -164,7 +167,7 @@ class XFoilTestCase(unittest.TestCase):
         )
         xfoil_python = pd.DataFrame.from_dict(xfoil_object.results)
 
-        if xfoil_python.shape == xfoil_fortran_dp.shape:
+        if len(xfoil_python) == len(xfoil_fortran_dp):
             print("Double Precision detected")
             xfoil_fortran = xfoil_fortran_dp
         else:

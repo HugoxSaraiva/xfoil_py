@@ -129,7 +129,6 @@ class XFoil:
         if os.path.exists(":00.bl"):
             os.remove(":00.bl")
 
-
     @property
     def _is_naca(self):
         return self._valid_naca(self.name)
