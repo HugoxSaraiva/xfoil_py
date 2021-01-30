@@ -24,7 +24,7 @@ class UserOptions:
         parser.add_argument("-t", "--threads", type=int, dest="max_threads", default=4,
                             help="Max threads to run xfoil in parallel. Default value is 4.")
         parser.add_argument('-p', '--plot', type=str, dest="plot", nargs=2,
-                            choices=['a', 'cl', 'cd', 'cdp', 'cm', 'xtr_top', 'xtr_bottom'],
+                            choices=['alpha', 'CL', 'CD', 'CDp', 'CM', 'Top_Xtr', 'Bot_Xtr', 'Top_Itr', 'Bot_Itr'],
                             help="Plots variables from xfoil result. 'cl a' plots Cl x alpha polar")
         parser.add_argument("--p-n", "--plot-name", type=str, dest="save_plot_name",
                             help="Save name of polar plot file")
