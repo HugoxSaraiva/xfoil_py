@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 import itertools
-import xfoil
+from xfoil_py import xfoil
 
 
 class XFoilTestCase(unittest.TestCase):
@@ -84,35 +84,62 @@ class XFoilTestCase(unittest.TestCase):
         results = xfoil.main(args)
         # Checking if files created have correct results
         for i, (naca, test_case) in enumerate(itertools.product(nacas, test_cases), 1):
-            xfoil_fortran = pd.read_csv(
+            xfoil_python = pd.DataFrame.from_dict(results[i-1])
+
+            xfoil_fortran_sp = pd.read_csv(
                 f"data/{naca}-{i}.txt",
                 sep=" ",
                 skipinitialspace=True,
                 skiprows=[x for x in range(12) if x != 10]
             )
-            xfoil_python = pd.DataFrame.from_dict(results[i-1])
-            xfoil_python.columns = xfoil_fortran.columns
+            xfoil_fortran_dp = pd.read_csv(
+                f"data/{naca}-{i}-DP.txt",
+                sep=" ",
+                skipinitialspace=True,
+                skiprows=[x for x in range(12) if x != 10]
+            )
+            if len(xfoil_python) == len(xfoil_fortran_dp):
+                print("Double Precision detected")
+                xfoil_fortran = xfoil_fortran_dp
+            else:
+                xfoil_fortran = xfoil_fortran_sp
+            print(xfoil_python)
 
+            print(xfoil_fortran)
             # Using np.isclose() to check if values in array are close ignoring floating point errors
             self.assertTrue(np.isclose(xfoil_python.values, xfoil_fortran.values).all())
 
     @unittest.skipIf(fast_test, "Skip testing args input for a faster test")
     def test_args(self):
         # Test use case
-        args = "-n 0012 -m 0.5 -r 31000000 -a -5 15 0.5 -s args_run -p cl a --p-n saved_plot --p-t 'Test' -d".split()
+        args = "-n 0012 -m 0.5 -r 31000000 -a -5 15 0.5 -s args_run -p CL alpha --p-n saved_plot --p-t 'Test' -d".split()
         xfoil.main(args)
-        xfoil_fortran = pd.read_csv(
+        xfoil_args = pd.read_csv(
+            "args_run.txt",
+            sep=" ",
+            skipinitialspace=True,
+            skiprows=[x for x in range(12) if x != 10]
+        )
+
+        # Verifying if xfoil executable is in double precision (dp) or not:
+        xfoil_fortran_sp = pd.read_csv(
             f"data/0012-1.txt",
             sep=" ",
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
         )
-        xfoil_args = pd.read_csv(
-            f"args_run.txt",
+        xfoil_fortran_dp = pd.read_csv(
+            f"data/0012-1-DP.txt",
             sep=" ",
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
         )
+        if len(xfoil_args) == len(xfoil_fortran_dp):
+            print("Double Precision detected")
+            xfoil_fortran = xfoil_fortran_dp
+        else:
+            xfoil_fortran = xfoil_fortran_sp
+
         if os.path.exists("args_run.txt"):
             os.remove("args_run.txt")
         self.assertTrue(np.isclose(xfoil_args.values, xfoil_fortran.values).all())
@@ -126,13 +153,26 @@ class XFoilTestCase(unittest.TestCase):
         xfoil_object = xfoil.XFoil("data/NATAFOIL.dat", 0.5, 31000000, -5, 10, 0.2)
         xfoil_object.run()
 
-        xfoil_fortran = pd.read_csv(
+        xfoil_fortran_sp = pd.read_csv(
             f"data/natafoil.txt",
             sep=" ",
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
         )
+        xfoil_fortran_dp = pd.read_csv(
+            f"data/natafoil-DP.txt",
+            sep=" ",
+            skipinitialspace=True,
+            skiprows=[x for x in range(12) if x != 10]
+        )
         xfoil_python = pd.DataFrame.from_dict(xfoil_object.results)
+
+        if len(xfoil_python) == len(xfoil_fortran_dp):
+            print("Double Precision detected")
+            xfoil_fortran = xfoil_fortran_dp
+        else:
+            xfoil_fortran = xfoil_fortran_sp
+
         xfoil_python.columns = xfoil_fortran.columns
 
         # Using np.isclose() to check if values in array are close ignoring floating point errors

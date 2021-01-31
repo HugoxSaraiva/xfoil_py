@@ -8,9 +8,9 @@ import sys
 from matplotlib import pyplot as plt
 from scipy.special import comb
 from threading import Timer
-from utils.user_options import UserOptions
-from utils.utils import *
-from definitions import EXEC_DIR
+from xfoil_py.utils.user_options import UserOptions
+from xfoil_py.utils.utils import *
+from xfoil_py.definitions import EXEC_DIR
 # TODO: use BezierSegment from matplotlib
 
 
@@ -92,17 +92,13 @@ class XFoil:
 
             logging.info("Proceeding to read polar file")
             # Reading polar text file to get results
-            try:
-                self.results = self.read_polar(self.save_polar_name)
-                if self.save_polar_name.startswith("tmp_"):
-                    self._file_cleanup()
-                else:
-                    logging.info(f"Keeping polar file {self.save_polar_name} on disk")
-            except FileNotFoundError:
-                logging.warning("An error occurred while trying to read polar")
-                logging.debug(f"Tried to read polar {self.save_polar_name} and failed")
-                self.results = None
+            self.results = self.read_polar(self.save_polar_name)
+        except FileNotFoundError:
+            logging.warning("An error occurred while trying to read polar")
+            logging.debug(f"Tried to read polar {self.save_polar_name} and failed")
+            self.results = None
         finally:
+            self._file_cleanup()
             logging.info("XFoil class run() method ended")
             timer.cancel()
 
@@ -122,9 +118,16 @@ class XFoil:
             plt.savefig(save_plot_name)
 
     def _file_cleanup(self):
-        logging.debug(f"Deleting polar file {self.save_polar_name}")
-        if os.path.exists(self.save_polar_name):
-            os.remove(self.save_polar_name)
+        if self.save_polar_name.startswith("tmp_"):
+            logging.debug(f"Deleting polar file {self.save_polar_name}")
+            if os.path.exists(self.save_polar_name):
+                os.remove(self.save_polar_name)
+        else:
+            logging.info(f"Keeping polar file {self.save_polar_name} on disk")
+
+        # Deleting additional file created on linux
+        if os.path.exists(":00.bl"):
+            os.remove(":00.bl")
 
     @property
     def _is_naca(self):
@@ -272,43 +275,29 @@ class XFoil:
         file_path = add_prefix_suffix(file_path, suffix=".txt")
         logging.debug(f"Reading polar file {file_path}")
 
-        regex = re.compile('(?:\s*([+-]?\d*.\d*))')
+        data_regex = re.compile('([+-]?\d+\.\d+)')
+        columns_regex = re.compile('(\w+)')
+
         with open(file_path) as f:
             lines = f.readlines()
-
-            a = []
-            cl = []
-            cd = []
-            cdp = []
-            cm = []
-            xtr_top = []
-            xtr_bottom = []
+            columns = columns_regex.findall(lines[10])
+            logging.debug(f"Columns are {columns}")
+            polar_contents = {}
+            for column in columns:
+                polar_contents[column] = []
 
             for line in lines[12:]:
-                line_data = regex.findall(line)
+                line_data = data_regex.findall(line)
                 if line_data:
-                    try:
-                        a.append(float(line_data[0]))
-                        cl.append(float(line_data[1]))
-                        cd.append(float(line_data[2]))
-                        cdp.append(float(line_data[3]))
-                        cm.append(float(line_data[4]))
-                        xtr_top.append(float(line_data[5]))
-                        xtr_bottom.append(float(line_data[6]))
-                    except IndexError:
-                        raise InvalidFileContentsError(f"No valid polar found in file: '{file_path}'")
+                    for i, column in enumerate(columns):
+                        try:
+                            polar_contents[column].append(float(line_data[i]))
+                        except IndexError:
+                            raise InvalidFileContentsError(f"No valid polar found in file: '{file_path}'")
 
-            polar_contents = {
-                'a': np.array(a),
-                'cl': np.array(cl),
-                'cd': np.array(cd),
-                'cdp': np.array(cdp),
-                'cm': np.array(cm),
-                'xtr_top': np.array(xtr_top),
-                'xtr_bottom': np.array(xtr_bottom)
-            }
             if any([len(values) == 0 for _, values in polar_contents.items()]):
                 raise InvalidFileContentsError(f"No valid polar found in file: '{file_path}'")
+            logging.debug(f"Polar contents are: {polar_contents}")
             return polar_contents
 
     @staticmethod
@@ -475,7 +464,7 @@ def main(arguments):
                                  args.alphas,
                                  args.save_polar_name,
                                  args,
-                                 plot=True)
+                                 plot=args.save_plot_name)
 
 
 if __name__ == "__main__":
