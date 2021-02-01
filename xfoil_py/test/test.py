@@ -83,17 +83,17 @@ class XFoilTestCase(unittest.TestCase):
         ]
         results = xfoil.main(args)
         # Checking if files created have correct results
-        for i, (naca, test_case) in enumerate(itertools.product(nacas, test_cases), 1):
-            xfoil_python = pd.DataFrame.from_dict(results[i-1])
+        for i, (naca, test_case) in enumerate(itertools.product(nacas, test_cases)):
+            xfoil_python = pd.DataFrame.from_dict(results[str(i)]['result'])
 
             xfoil_fortran_sp = pd.read_csv(
-                f"data/{naca}-{i}.txt",
+                f"data/{naca}-{i+1}.txt",
                 sep=" ",
                 skipinitialspace=True,
                 skiprows=[x for x in range(12) if x != 10]
             )
             xfoil_fortran_dp = pd.read_csv(
-                f"data/{naca}-{i}-DP.txt",
+                f"data/{naca}-{i+1}-DP.txt",
                 sep=" ",
                 skipinitialspace=True,
                 skiprows=[x for x in range(12) if x != 10]
@@ -103,19 +103,16 @@ class XFoilTestCase(unittest.TestCase):
                 xfoil_fortran = xfoil_fortran_dp
             else:
                 xfoil_fortran = xfoil_fortran_sp
-            print(xfoil_python)
-
-            print(xfoil_fortran)
             # Using np.isclose() to check if values in array are close ignoring floating point errors
             self.assertTrue(np.isclose(xfoil_python.values, xfoil_fortran.values).all())
 
     @unittest.skipIf(fast_test, "Skip testing args input for a faster test")
     def test_args(self):
         # Test use case
-        args = "-n 0012 -m 0.5 -r 31000000 -a -5 15 0.5 -s args_run -p CL alpha --p-n saved_plot --p-t 'Test' -d".split()
+        args = "-n 0012 -m 0.5 -r 31000000 -a -5 15 0.5 -s args_run -d".split()
         xfoil.main(args)
         xfoil_args = pd.read_csv(
-            "args_run.txt",
+            "0_args_run.txt",
             sep=" ",
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
@@ -140,17 +137,12 @@ class XFoilTestCase(unittest.TestCase):
         else:
             xfoil_fortran = xfoil_fortran_sp
 
-        if os.path.exists("args_run.txt"):
-            os.remove("args_run.txt")
+        if os.path.exists("0_args_run.txt"):
+            os.remove("0_args_run.txt")
         self.assertTrue(np.isclose(xfoil_args.values, xfoil_fortran.values).all())
 
-        # Test if plot is saved
-        self.assertTrue(os.path.exists("saved_plot.png"))
-        if os.path.exists("saved_plot.png"):
-            os.remove("saved_plot.png")
-
     def test_dat_run(self):
-        xfoil_object = xfoil.XFoil("data/NATAFOIL.dat", 0.5, 31000000, -5, 10, 0.2)
+        xfoil_object = xfoil.XFoil("data/NATAFOIL.dat", 0.5, 31000000, [-5, 10, 0.2])
         xfoil_object.run()
 
         xfoil_fortran_sp = pd.read_csv(
@@ -165,7 +157,7 @@ class XFoilTestCase(unittest.TestCase):
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
         )
-        xfoil_python = pd.DataFrame.from_dict(xfoil_object.results)
+        xfoil_python = pd.DataFrame.from_dict(xfoil_object.results['0']['result'])
 
         if len(xfoil_python) == len(xfoil_fortran_dp):
             print("Double Precision detected")
