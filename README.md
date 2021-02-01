@@ -68,12 +68,12 @@ Also saves the polar files with the prefix 'polar'
 
 This will generate polar files :
 
-polar-N-0012-M-0_2-R-18000000-A-0_0-15_0-1_0.txt\
-polar-N-0012-M-0_5-R-31000000-A--5_0-15_0-0_5.txt\
-polar-N-4412-M-0_2-R-18000000-A-0_0-15_0-1_0.txt\
-polar-N-4412-M-0_5-R-31000000-A--5_0-15_0-0_5.txt\
-polar-N-4508-M-0_2-R-18000000-A-0_0-15_0-1_0.txt\
-polar-N-4508-M-0_5-R-31000000-A--5_0-15_0-0_5.txt
+0_polar.txt corresponding to run on NACA 0012 with test case 1\
+1_polar.txt corresponding to run on NACA 0012 with test case 2\
+2_polar.txt corresponding to run on NACA 4412 with test case 1\
+3_polar.txt corresponding to run on NACA 4412 with test case 2\
+4_polar.txt corresponding to run on NACA 4508 with test case 1\
+5_polar.txt corresponding to run on NACA 4508 with test case 2\
 
 ###### XFoil class:
 Loads a dat file in "data" folder and runs it with parameters:
@@ -81,12 +81,12 @@ Loads a dat file in "data" folder and runs it with parameters:
 Mach = 0.5, Reynolds = 31000000, alpha_min = -5, alpha_max = 10, 
 alpha_step = 0.2.
 
-    from xfoil import XFoil
-    xfoil_object = XFoil("data/NATAFOIL.dat", 0.5, 31000000, -5, 10, 0.2)
+    from xfoil_py import XFoil
+    xfoil_object = XFoil("data/NATAFOIL.dat", 0.5, 31000000, [-5, 10, 0.2])
     xfoil_object.run()
 
     # Getting results as a dict:
-    results = xfoil_object.results
+    results = xfoil_object.results['0']['result']
     print(results)
 
 ## Features
