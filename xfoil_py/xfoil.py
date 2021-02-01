@@ -11,6 +11,7 @@ from xfoil_py.utils.user_options import UserOptions
 from xfoil_py.utils.utils import *
 from xfoil_py.definitions import EXEC_DIR
 # TODO: use BezierSegment from matplotlib
+# TODO: Add from_file and from dict methods to instantiate class
 
 
 class XFoil:
