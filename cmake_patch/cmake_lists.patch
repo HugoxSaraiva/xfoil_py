@@ -1,0 +1,154 @@
+diff -Naur Xfoil/bin/CMakeLists.txt Xfoil.patched/bin/CMakeLists.txt
+--- Xfoil/bin/CMakeLists.txt	1969-12-31 21:00:00.000000000 -0300
++++ Xfoil.patched/bin/CMakeLists.txt	2021-02-06 22:48:00.049387250 -0300
+@@ -0,0 +1,71 @@
++set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fdefault-real-8 -fallow-argument-mismatch -std=legacy")
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -DUNDERSCORE")
++set(ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
++set(SOURCE ${ROOT}/src)
++set(OSRC ${ROOT}/osrc)
++set(PLTLIB ${X11_LIBRARIES})
++
++message(STATUS "PLTLIB=${PLTLIB}")
++
++enable_language(C)
++add_library(getosfile OBJECT ${OSRC}/getosfile.c)
++
++enable_language(Fortran)
++# pxplot objects
++add_library(plutil OBJECT ${SOURCE}/plutil.f)
++add_library(gui OBJECT ${SOURCE}/gui.f)
++add_library(userio OBJECT ${SOURCE}/userio.f)
++
++# pplot objects
++add_library(polplt OBJECT ${SOURCE}/polplt.f ${SOURCE}/PINDEX.INC)
++add_library(sort OBJECT ${SOURCE}/sort.f)
++add_library(iopol OBJECT ${SOURCE}/iopol.f ${SOURCE}/PINDEX.INC)
++
++# xfoil objects
++add_library(xpanel OBJECT ${SOURCE}/xpanel.f ${SOURCE}/XFOIL.INC)
++add_library(xoper OBJECT ${SOURCE}/xoper.f ${SOURCE}/XFOIL.INC ${SOURCE}/BLPAR.INC)
++add_library(xtcam OBJECT ${SOURCE}/xtcam.f ${SOURCE}/XFOIL.INC ${SOURCE}/XDES.INC)
++add_library(xgdes OBJECT ${SOURCE}/xgdes.f ${SOURCE}/XFOIL.INC ${SOURCE}/XDES.INC)
++add_library(xqdes OBJECT ${SOURCE}/xqdes.f ${SOURCE}/XFOIL.INC ${SOURCE}/XDES.INC)
++add_library(xmdes OBJECT ${SOURCE}/xmdes.f ${SOURCE}/XFOIL.INC ${SOURCE}/XDES.INC ${SOURCE}/CIRCLE.INC)
++add_library(xsolve OBJECT ${SOURCE}/xsolve.f ${SOURCE}/XFOIL.INC)
++add_library(xbl OBJECT ${SOURCE}/xbl.f ${SOURCE}/XFOIL.INC ${SOURCE}/XBL.INC ${SOURCE}/BLPAR.INC)
++add_library(xblsys OBJECT ${SOURCE}/xblsys.f ${SOURCE}/XBL.INC ${SOURCE}/BLPAR.INC)
++add_library(xpol OBJECT ${SOURCE}/xpol.f ${SOURCE}/XFOIL.INC ${SOURCE}/PINDEX.INC)
++add_library(xplots OBJECT ${SOURCE}/xplots.f ${SOURCE}/XFOIL.INC ${SOURCE}/XDES.INC)
++add_library(pntops OBJECT ${SOURCE}/pntops.f ${SOURCE}/XFOIL.INC ${SOURCE}/XDES.INC)
++add_library(xgeom OBJECT ${SOURCE}/xgeom.f)
++add_library(xutils OBJECT ${SOURCE}/xutils.f)
++add_library(modify OBJECT ${SOURCE}/modify.f)
++add_library(blplot OBJECT ${SOURCE}/blplot.f ${SOURCE}/XFOIL.INC ${SOURCE}/BLPAR.INC)
++add_library(aread OBJECT ${SOURCE}/aread.f)
++add_library(naca OBJECT ${SOURCE}/naca.f)
++add_library(spline_obj OBJECT ${SOURCE}/spline.f)
++add_library(dplot OBJECT ${SOURCE}/dplot.f ${SOURCE}/XFOIL.INC)
++add_library(profil OBJECT ${SOURCE}/profil.f)
++add_library(frplot OBJECT ${SOURCE}/frplot.f)
++add_library(ntcalc OBJECT ${SOURCE}/ntcalc.f)
++add_library(osmap OBJECT ${OSRC}/osmap.f)
++
++set(PXPLOTOBJ plutil gui)
++set(XUTILOBJ userio)
++set(PPLOTOBJ polplt sort iopol)
++set(XFOILOBJ xpanel xoper xtcam xgdes xqdes xmdes xsolve xbl xblsys xpol xplots pntops xgeom xutils modify blplot polplt aread naca spline_obj plutil iopol gui sort dplot profil)
++set(OSOBJ frplot ntcalc osmap getosfile)
++set(PLTOBJ libPlt)
++
++# Creating final executables
++add_executable(pxplot ${SOURCE}/pxplot.f ${SOURCE}/PXPLOT.INC)
++target_link_libraries(pxplot ${PXPLOTOBJ} ${XUTILOBJ} ${PLTOBJ} ${PLTLIB} ${FTNLIB})
++set_target_properties(pxplot PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PKGDIR})
++add_executable(pplot ${SOURCE}/pplot.f)
++target_link_libraries(pplot ${PPLOTOBJ} ${XUTILOBJ} ${PLTOBJ} ${PLTLIB} ${FTNLIB})
++set_target_properties(pplot PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PKGDIR})
++add_executable(xfoil ${SOURCE}/xfoil.f)
++target_link_libraries(xfoil ${XFOILOBJ} ${XUTILOBJ} ${OSOBJ} ${PLTOBJ} ${PLTLIB} ${FTNLIB})
++set_target_properties(xfoil PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PKGDIR})
++
++file(
++        INSTALL ${ROOT}/xfoil_doc.txt
++        DESTINATION ${CMAKE_BINARY_DIR}/share/xfoil/doc/
++)
+diff -Naur Xfoil/CMakeLists.txt Xfoil.patched/CMakeLists.txt
+--- Xfoil/CMakeLists.txt	1969-12-31 21:00:00.000000000 -0300
++++ Xfoil.patched/CMakeLists.txt	2021-02-06 22:41:43.036069505 -0300
+@@ -0,0 +1,7 @@
++FIND_PACKAGE(X11 REQUIRED)
++add_subdirectory(orrs/bin)
++add_subdirectory(plotlib)
++add_subdirectory(bin)
++
++
++
+diff -Naur Xfoil/orrs/bin/CMakeLists.txt Xfoil.patched/orrs/bin/CMakeLists.txt
+--- Xfoil/orrs/bin/CMakeLists.txt	1969-12-31 21:00:00.000000000 -0300
++++ Xfoil.patched/orrs/bin/CMakeLists.txt	2021-02-06 23:30:44.512614474 -0300
+@@ -0,0 +1,25 @@
++set(ORRS ${CMAKE_CURRENT_SOURCE_DIR}/..)
++set(ORRS_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
++set(SOURCE ${ORRS}/src)
++set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O2 -fdefault-real-8")
++
++message(STATUS "ORRS=${ORRS}")
++message(STATUS "ORRS_ROOT=${ORRS_ROOT}")
++enable_language(Fortran)
++add_library(orrs_osmap OBJECT ${SOURCE}/osmap.f)
++add_library(io OBJECT ${SOURCE}/io.f)
++add_library(orrs_spline OBJECT ${SOURCE}/spline.f)
++add_library(getarg0 OBJECT ${SOURCE}/getarg0.f)
++
++add_executable(osgen ${SOURCE}/osgen.f)
++target_link_libraries(osgen io orrs_spline getarg0 ${FTNLIB})
++
++# Certifies the directory exists otherwise rename will give a No such file or directory error
++file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/share/xfoil/orrs)
++add_custom_command(
++        TARGET osgen POST_BUILD
++        COMMAND osgen osmaps_ns.lst
++        COMMAND ${CMAKE_COMMAND} -E rename osmap.dat ${CMAKE_BINARY_DIR}/share/xfoil/orrs/osmap.dat
++        WORKING_DIRECTORY ${ORRS}
++        COMMENT "Creating osmap.dat and moving it ${ORRS}/osmap.dat to ${CMAKE_BINARY_DIR}/"
++)
+diff -Naur Xfoil/plotlib/CMakeLists.txt Xfoil.patched/plotlib/CMakeLists.txt
+--- Xfoil/plotlib/CMakeLists.txt	1969-12-31 21:00:00.000000000 -0300
++++ Xfoil.patched/plotlib/CMakeLists.txt	2021-02-02 21:02:26.389871427 -0300
+@@ -0,0 +1,35 @@
++set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -O2 -fno-range-check -fdefault-real-8 -std=legacy")
++set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -DUNDERSCORE")
++set(INSTALLDIR ${CMAKE_SOURCE_DIR}/plotlib/)
++
++message(STATUS "INSTALLDIR=${INSTALLDIR}")
++message(STATUS "X11_LIBRARIES=${X11_LIBRARIES}")
++
++# Link X11 libs for Xwin2
++enable_language(C)
++add_library(Xwin2 OBJECT Xwin2.c)
++
++enable_language(Fortran)
++add_library(plt_base OBJECT plt_base.f pltlib.inc)
++add_library(plt_font OBJECT plt_font.f CHAR.INC SLAN.INC MATH.INC SYMB.INC)
++add_library(plt_util OBJECT plt_util.f)
++add_library(plt_color OBJECT plt_color.f pltlib.inc)
++add_library(set_subs OBJECT set_subs.f pltlib.inc)
++add_library(gw_subs OBJECT gw_subs.f pltlib.inc)
++add_library(ps_subs OBJECT ps_subs.f pltlib.inc)
++add_library(plt_old OBJECT plt_old.f pltlib.inc)
++add_library(plt_3D OBJECT plt_3D.f)
++
++# Setting variables to create libPlt.a
++set(OBJ plt_font plt_util plt_color set_subs gw_subs ps_subs Xwin2)
++set(OBJOLD plt_old)
++set(OBJ3D plt_3D)
++
++# Create liblibPlt and change its name to libPlt
++add_library(libPlt STATIC plt_base.f pltlib.inc)
++target_link_libraries(libPlt ${OBJ} ${OBJOLD} ${OBJ3D} ${OBJMISC})
++set_target_properties(libPlt PROPERTIES OUTPUT_NAME "Plt")
++add_custom_command(
++        TARGET libPlt
++        POST_BUILD COMMAND ${CMAKE_RANLIB} $<TARGET_FILE:libPlt>
++)
