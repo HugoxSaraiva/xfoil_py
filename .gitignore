@@ -2,3 +2,6 @@
 .idea/
 /genetic-algorithm/
 /xfoil_py/test/dummy.py
+/build/
+/aur_patch/
+/Xfoil/

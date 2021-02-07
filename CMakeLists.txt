@@ -2,7 +2,6 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
         message(FATAL_ERROR "DO NOT BUILD in-tree.")
 endif()
 
-
 cmake_minimum_required(VERSION 3.11)
 
 set(PKGNAME xfoil)
@@ -38,16 +37,20 @@ execute_process(
 
 project(xfoil Fortran C)
 
-set(PKGDIR ${CMAKE_CURRENT_SOURCE_DIR}/xfoil_py/runs)
+set(PKGDIR ${CMAKE_CURRENT_SOURCE_DIR}/xfoil_py/runs) # put directly into runs folder
+# set(PKGDIR ${CMAKE_CURRENT_BINARY_DIR}) # put into build folder
 set(SHARE_DIR ${CMAKE_BINARY_DIR}/share)
 set(DAT_DIR ${PKGDIR}/share/orrs/osmap.dat)
+
 # Check if string is too big to put in osmap.f
 string(LENGTH  ${PKGDIR}/share/orrs/osmap.dat PATH_SIZE)
-if(PATH_SIZE GREATER 50)
-        # String too long, creating new line
+if(${PATH_SIZE} GREATER 50 AND ${PATH_SIZE} LESS_EQUAL 128)
+        # String too long to put in one line, creating new line
         string(SUBSTRING ${DAT_DIR} 0 50 OSMAP_DIR_START)
         string(SUBSTRING ${DAT_DIR} 50 -1 OSMAP_DIR_END)
         string(JOIN "\n     &" OSMAP_FINAL_DIR ${OSMAP_DIR_START} ${OSMAP_DIR_END})
+elseif(${PATH_SIZE} GREATER 128)
+        message(FATAL_ERROR "osmap.dat install directory is too big. (> 128 characters)")
 else()
         set(OSMAP_FINAL_DIR ${DAT_DIR})
 endif ()
@@ -58,7 +61,8 @@ configure_file(${XFOIL_SOURCE_DIR}/orrs/src/osmap.f.in ${XFOIL_SOURCE_DIR}/orrs/
 add_subdirectory(Xfoil)
 
 # Copy binaries to xfoil_py/runs folder after install
-add_custom_target(move_share_folder ALL
+add_custom_target(
+        move_share_folder ALL
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHARE_DIR}/xfoil/ ${PKGDIR}/share/
-        )
+)
 add_dependencies(move_share_folder osgen)
