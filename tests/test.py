@@ -84,7 +84,7 @@ class XFoilTestCase(unittest.TestCase):
         results = xfoil.main(args)
         # Checking if files created have correct results
         for i, (naca, test_case) in enumerate(itertools.product(nacas, test_cases)):
-            xfoil_python = pd.DataFrame.from_dict(results[str(i)]['result'])
+            xfoil_python = pd.DataFrame.from_dict(results[i]['result'])
 
             xfoil_fortran_sp = pd.read_csv(
                 f"data/{naca}-{i+1}.txt",
@@ -98,7 +98,7 @@ class XFoilTestCase(unittest.TestCase):
                 skipinitialspace=True,
                 skiprows=[x for x in range(12) if x != 10]
             )
-            if len(xfoil_python) == len(xfoil_fortran_dp):
+            if xfoil_python.shape == xfoil_fortran_dp.shape:
                 print("Double Precision detected")
                 xfoil_fortran = xfoil_fortran_dp
             else:
@@ -157,7 +157,7 @@ class XFoilTestCase(unittest.TestCase):
             skipinitialspace=True,
             skiprows=[x for x in range(12) if x != 10]
         )
-        xfoil_python = pd.DataFrame.from_dict(xfoil_object.results['0']['result'])
+        xfoil_python = pd.DataFrame.from_dict(xfoil_object.results[0]['result'])
 
         if len(xfoil_python) == len(xfoil_fortran_dp):
             print("Double Precision detected")

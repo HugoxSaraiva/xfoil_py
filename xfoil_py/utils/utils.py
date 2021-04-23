@@ -3,6 +3,8 @@ import uuid
 import itertools
 import json
 import numpy
+import logging
+from functools import wraps
 
 
 def random_string():
@@ -49,6 +51,16 @@ def zip_longest_modified(*args, fillvalue=None):
                 value = fillvalue[len(values)]
             values.append(value)
         yield tuple(values)
+
+
+def log(message, log_level=logging.INFO):
+    def decorator(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            logging.log(log_level, message)
+            return function(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 class XfoilEncoder(json.JSONEncoder):

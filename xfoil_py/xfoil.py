@@ -1,70 +1,95 @@
 import concurrent.futures
-import logging
 import numpy as np
 import os
 import re
 import subprocess as sp
 import sys
+from contextlib import suppress
 from matplotlib import pyplot as plt
 from scipy.special import comb
 from xfoil_py.utils.user_options import UserOptions
 from xfoil_py.utils.utils import *
 from xfoil_py.definitions import EXEC_DIR
+
+
 # TODO: use BezierSegment from matplotlib
 
 
 class XFoil:
+    DEFAULT_OPTIONS = {
+        "panels": 300,
+        "max_iterations": 100,
+        "n_crit": 9,
+        "max_threads": 6,
+        "executable_path": EXEC_DIR,
+        "save_polar_name": None,
+        "process_timeout": 45,
+        "disable_graphics": True
+    }
+
+    @log("Initializing XFoil class", logging.INFO)
     def __init__(
             self,
             name,
             mach,
             reynolds,
             alphas,
-            save_polar_name=None,
-            executable_path=None,
-            panels=300,
-            max_iterations=100,
-            n_crit=9,
-            max_threads=None
+            **koptions
     ):
-        logging.info("Initializing XFoil class")
+        # Initial guard clauses
+        alphas = np.array(alphas, dtype=float).reshape(-1)
+        if len(alphas) % 3 != 0:
+            raise IndexError(
+                "alphas length is not divisible by 3. Can't identify min, max and step values"
+            )
+
+        # Get options and set defaults
+        options_dict = koptions.copy()
+        for key in self.DEFAULT_OPTIONS:
+            if options_dict.get(key, None) is None:
+                options_dict[key] = self.DEFAULT_OPTIONS[key]
+
         # Attributes to use with xfoil
         self.names = np.array(name, dtype=str, ndmin=1)
-        self.save_polar_name = add_prefix_suffix(save_polar_name, suffix=".txt") if save_polar_name else None
         self.machs = np.array(mach, dtype=float, ndmin=1)
         self.reynolds = np.array(reynolds, dtype=int, ndmin=1)
-        if len(alphas) % 3 == 0:
-            self.alphas = np.array(alphas, dtype=float).reshape(-1, 3)
-        else:
-            raise IndexError("alphas length is not divisible by 3. Can't identify min, max and step values")
+        self.alphas = alphas.reshape(-1, 3)
+
+        save_polar_name = options_dict.get("save_polar_name", None)
+        self.save_polar_name = add_prefix_suffix(save_polar_name, suffix=".txt") if save_polar_name else None
 
         # Additional parameters available to users
-        self.panels = np.array(panels, dtype=int, ndmin=1)
-        self.n_crit = np.array(n_crit, dtype=int, ndmin=1)
-        self.max_iterations = np.array(max_iterations, dtype=int, ndmin=1)
+        self.panels = np.array(options_dict["panels"], dtype=int, ndmin=1)
+        self.n_crit = np.array(options_dict["n_crit"], dtype=int, ndmin=1)
+        self.max_iterations = np.array(options_dict["max_iterations"], dtype=int, ndmin=1)
+
+        cases_to_iterate = [
+            self.machs,
+            self.reynolds,
+            self.alphas,
+            self.panels,
+            self.n_crit,
+            self.max_iterations
+        ]
+        fill_values = [
+            self.machs[-1],
+            self.reynolds[-1],
+            self.alphas[-1],
+            self.panels[-1],
+            self.n_crit[-1],
+            self.max_iterations[-1]
+        ]
         # Create iterator for all test cases
-        test_cases_iterator = zip_longest_modified(self.machs,
-                                                   self.reynolds,
-                                                   self.alphas,
-                                                   self.panels,
-                                                   self.n_crit,
-                                                   self.max_iterations,
-                                                   fillvalue=[self.machs[-1],
-                                                              self.reynolds[-1],
-                                                              self.alphas[-1],
-                                                              self.panels[-1],
-                                                              self.n_crit[-1],
-                                                              self.max_iterations[-1]
-                                                              ]
-                                                   )
+        test_cases_iterator = zip_longest_modified(*cases_to_iterate, fillvalue=fill_values)
         # Create iterator for all airfoils and test cases
-        self.airfoils_iterator = itertools.product(self.names, test_cases_iterator)
+        self._airfoils_iterator = itertools.product(self.names, test_cases_iterator)
 
         # Attributes to use in XFoil class
-        self._executable = [executable_path if executable_path else EXEC_DIR]
-        self._process_timeout = 30
-        self.max_threads = max_threads
-        self._disable_graphics = True
+        self._executable = options_dict["executable_path"]
+        self._process_timeout = options_dict["process_timeout"]
+        self._max_threads = options_dict["max_threads"]
+        self._disable_graphics = options_dict["disable_graphics"]
+        self._options = options_dict
         self.results = {}
 
         debug_msg = "XFoil class initialized with properties: names: {} machs: {} reynolds: {} alphas: {}"
@@ -75,35 +100,39 @@ class XFoil:
                                        )
                       )
 
+    def __repr__(self):
+        template = "{}({}, {}, {}, {}, {})"
+        kwargs_string = ', '.join('{0}={1!r}'.format(key, value) for key, value in self._options.items())
+        formatted_string = template.format(
+            str(self.__class__.__name__),
+            np.array2string(self.names, separator=","),
+            np.array2string(self.machs, separator=","),
+            np.array2string(self.reynolds, separator=","),
+            np.array2string(self.alphas, separator=","),
+            kwargs_string
+        )
+
+        return formatted_string
+
+    @log("XFoil class run() method called", logging.INFO)
     def run(self):
         """
         Runs xfoil with given filename, mach, reynolds, alpha_min, alpha_max and alpha_step, used to initialize class
         :return: None
         """
-        logging.info("XFoil class run() method called")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_threads) as executor:
+        xfoil_run_constants = (self.save_polar_name, self._disable_graphics, self._executable, self._process_timeout)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_threads) as executor:
             # Create dict to identify results as they are completed
-            futures_to_run_id = {
-                executor.submit(XFoil._worker_run,
-                                        name,
-                                        mach,
-                                        reynolds,
-                                        alphas,
-                                        panels,
-                                        n_crit,
-                                        self.save_polar_name,
-                                        run_id,
-                                        iterations,
-                                        self._disable_graphics,
-                                        self._executable,
-                                        self._process_timeout): run_id
-                for run_id, (name,
-                             (mach, reynolds, alphas, panels, n_crit, iterations)
-                             ) in enumerate(self.airfoils_iterator)
-            }
+            futures_to_run_id = {}
+            for run_id, (name, test_case) in enumerate(self._airfoils_iterator):
+                futures_to_run_id[executor.submit(XFoil._worker_run,
+                                                  run_id,
+                                                  name,
+                                                  *test_case,
+                                                  *xfoil_run_constants)] = run_id
             for future in concurrent.futures.as_completed(futures_to_run_id):
                 run_id = futures_to_run_id[future]
-                self.results[str(run_id)] = future.result()
+                self.results[run_id] = future.result()
                 logging.info(f"Run of id {run_id} finished")
 
     @classmethod
@@ -145,31 +174,20 @@ class XFoil:
         return XFoil.from_dict(dictionary)
 
     @staticmethod
-    def _worker_run(name,
-                    mach,
-                    reynolds,
-                    alphas,
-                    panels,
-                    n_crit,
-                    save_name,
-                    run_id,
-                    max_iterations,
-                    disable_graphics,
-                    executable_path,
-                    timeout
-                    ):
+    def _worker_run(run_id, name, mach, reynolds, alphas, panels, n_crit, max_iterations, save_name, disable_graphics,
+                    executable_path, timeout):
         """
         Runs xfoil executable with given parameters
-        :return: Dict with data
+        :return: Dict with result_data
         """
-        data = {'metadata': {'name': name,
-                             'mach': mach,
-                             'reynolds': reynolds,
-                             'alphas': alphas,
-                             'panels': panels,
-                             'n_crit': n_crit,
-                             'max_iterations': max_iterations}}
-        logging.debug(f"XFoil class _worker_run() method called with parameters: {data}"
+        result_data = {'metadata': {'name': name,
+                                    'mach': mach,
+                                    'reynolds': reynolds,
+                                    'alphas': alphas,
+                                    'panels': panels,
+                                    'n_crit': n_crit,
+                                    'max_iterations': max_iterations}}
+        logging.debug(f"XFoil class _worker_run() method called with parameters: {result_data}"
                       f"disable_graphics:{disable_graphics}, executable_path{executable_path}, timeout:{timeout}")
 
         # Creating temporary filename
@@ -177,29 +195,28 @@ class XFoil:
         logging.info("Opening subprocess")
         logging.debug(f"Executable path is {executable_path}")
 
-        input_string = XFoil._generate_input_string(name,
-                                                    mach,
-                                                    reynolds,
-                                                    alphas,
-                                                    panels,
-                                                    n_crit,
-                                                    max_iterations,
-                                                    tmp_file_name,
-                                                    disable_graphics)
+        data_dict = {
+            "name": name,
+            "mach": mach,
+            "reynolds": reynolds,
+            "alphas": alphas,
+            "panels": panels,
+            "n_crit": n_crit,
+            "max_iterations": max_iterations,
+            "polar_name": tmp_file_name,
+            "disable_graphics": disable_graphics
+        }
+        input_string = XFoil._generate_input_string(data_dict)
 
         logging.info("Communicating input string to subprocess")
+
         # Runs xfoil subprocess
         try:
-            completed_process = sp.run(executable_path,
-                                       input="".join(input_string).encode(),
-                                       capture_output=True,
-                                       check=True,
-                                       timeout=timeout)
-            # if logging.root.level <= logging.DEBUG:
-            #     stdout = completed_process.stdout.decode()
-            #     stderr = completed_process.stderr.decode()
-            #     logging.debug(f"Stdout is: {stdout}")
-            #     logging.debug(f"Error is: {stderr}")
+            process = sp.run(executable_path,
+                             input="".join(input_string).encode(),
+                             capture_output=True,
+                             check=True,
+                             timeout=timeout)
         except FileNotFoundError:
             raise ExecutableNotFoundError(f"Executable {executable_path} not found")
         except TimeoutError:
@@ -207,51 +224,37 @@ class XFoil:
 
         try:
             logging.info("Proceeding to read polar file")
-            # Reading polar text file to get data
-            data['result'] = XFoil.read_polar(tmp_file_name)
+            # Reading polar text file to get result_data
+            result_data['result'] = XFoil.read_polar(tmp_file_name)
         except FileNotFoundError:
             logging.warning("An error occurred while trying to read polar")
             logging.debug(f"Tried to read polar {tmp_file_name} and failed")
-            data = None
+            result_data = None
         finally:
             if save_name:
                 XFoil._file_cleanup(tmp_file_name, f"{run_id}_{save_name}")
             else:
                 XFoil._file_cleanup(tmp_file_name)
-            logging.debug(f"Data is {data}")
+            logging.debug(f"Data is {result_data}")
             logging.info("XFoil class run() method ended")
-            return data
-
-    # def plot_polar(self, x_column_name, y_column_name, save_plot_name=None, plot_title=None):
-    #     logging.info("Plotting polar")
-    #     if not self.results:
-    #         raise TypeError("XFoil result is None")
-    #     plt.plot(x_column_name, y_column_name, data=self.results)
-    #     plt.xlabel(x_column_name)
-    #     plt.ylabel(y_column_name)
-    #     plt.title(plot_title)
-    #
-    #     # Stop blocking code execution when debugging
-    #     if not self.debug:
-    #         plt.show()
-    #     if save_plot_name:
-    #         plt.savefig(save_plot_name)
+            return result_data
 
     @staticmethod
+    @log("File cleanup called", logging.INFO)
     def _file_cleanup(filepath, save_name=None):
         if save_name and os.path.exists(filepath):
             # Delete file if it exists already and then rename file
-            logging.info(f"Keeping polar file {save_name} on disk")
-            if os.path.exists(save_name):
+            with suppress(OSError):
                 os.remove(save_name)
             os.rename(filepath, save_name)
+            logging.info(f"Keeping polar file {save_name} on disk")
         elif path_leaf(filepath).startswith("tmp_"):
             logging.debug(f"Deleting polar file {filepath}")
-            if os.path.exists(filepath):
+            with suppress(OSError):
                 os.remove(filepath)
 
         # Deleting additional file created on linux
-        if os.path.exists(":00.bl"):
+        with suppress(OSError):
             os.remove(":00.bl")
 
     # def __read_stdout(self):
@@ -297,42 +300,42 @@ class XFoil:
         return string.isdigit() and (len(string) in [4, 5])
 
     @staticmethod
-    def _generate_input_string(name, mach, reynolds, alphas, panels, n_crit, iterations, polar_name, disable_graphics):
-        logging.info("Creating input string")
+    @log("Generating input string", logging.INFO)
+    def _generate_input_string(data_dict):
         input_string = []
         # Check whether to use naca from xfoil or load a dat file
-        if XFoil._is_naca(name):
-            input_string.append(f"naca {name}\n")
+        if XFoil._is_naca(data_dict["name"]):
+            input_string.append(f"naca {data_dict['name']}\n")
         else:
-            input_string.append(f"load {add_prefix_suffix(name, suffix='.dat')}\n")
-            input_string.append(f"{path_leaf(name)}\n")
+            input_string.append(f"load {add_prefix_suffix(data_dict['name'], suffix='.dat')}\n")
+            input_string.append(f"{path_leaf(data_dict['name'])}\n")
 
         # Disabling airfoil plotter from appearing
-        if disable_graphics:
+        if data_dict["disable_graphics"]:
             input_string.append("plop\n")
             input_string.append("g 0\n\n")
 
         # Setting number of panels
         input_string.append("ppar\n")
-        input_string.append(f"n {panels}\n\n\n")
+        input_string.append(f"n {data_dict['panels']}\n\n\n")
 
         # Setting viscous calculation parameters
         input_string.append("oper\n")
-        input_string.append(f"visc {reynolds}\n")
-        input_string.append(f"M {mach}\n")
-        input_string.append(f"iter {iterations}\n")
+        input_string.append(f"visc {data_dict['reynolds']}\n")
+        input_string.append(f"M {data_dict['mach']}\n")
+        input_string.append(f"iter {data_dict['max_iterations']}\n")
         input_string.append("vpar\n")
-        input_string.append(f"n {n_crit}\n\n")
+        input_string.append(f"n {data_dict['n_crit']}\n\n")
 
         # Setting polar name
         input_string.append("pacc\n")
-        input_string.append(f"{polar_name}\n\n")
+        input_string.append(f"{data_dict['polar_name']}\n\n")
 
         # Setting alpha values
         input_string.append("aseq\n")
-        input_string.append(f"{alphas[0]}\n")
-        input_string.append(f"{alphas[1]}\n")
-        input_string.append(f"{alphas[2]}\n")
+        input_string.append(f"{data_dict['alphas'][0]}\n")
+        input_string.append(f"{data_dict['alphas'][1]}\n")
+        input_string.append(f"{data_dict['alphas'][2]}\n")
         input_string.append("\nquit\n")
 
         logging.debug(f"Input string is : {input_string}")
@@ -464,12 +467,11 @@ class XFoil:
         # Certifies that the .dat suffix is in file_path
         file_path = add_prefix_suffix(file_path, suffix=".dat")
         logging.debug(f"Deleting file: {file_path}")
-        if os.path.exists(file_path):
+        with suppress(OSError):
             os.remove(file_path)
-        else:
-            logging.debug(f"File {file_path} not found")
 
     @staticmethod
+    @log("Plotting airfoil", logging.INFO)
     def plot_airfoil(file_path, separate_curves=False):
         """
         Plots airfoil using matplotlib
@@ -477,7 +479,6 @@ class XFoil:
         :param separate_curves:
         :return:
         """
-        logging.info("Plotting airfoil")
         # No need to sanitize file_path since read_dat does it already
         data = XFoil.read_dat(file_path)
 
