@@ -21,7 +21,7 @@ class UserOptions:
                                  "if xfoil is running multiple runs, or save_name otherwise")
         parser.add_argument("-x", "--executable", type=str, dest="executable_path", default=None,
                             help="Path to executable. Default behaviour is to use xfoil on /runs directory")
-        parser.add_argument("-t", "--threads", type=int, dest="max_threads", default=4,
+        parser.add_argument("-t", "--threads", type=int, dest="max_threads", default=6,
                             help="Max threads to run xfoil in parallel. Default value is 4.")
         parser.add_argument('-p', '--plot', type=str, dest="plot", nargs=2,
                             choices=['alpha', 'CL', 'CD', 'CDp', 'CM', 'Top_Xtr', 'Bot_Xtr', 'Top_Itr', 'Bot_Itr'],
