@@ -40,7 +40,7 @@ class XFoil:
         """
         # Initial guard clauses
         alphas = np.array(alphas, dtype=float).reshape(-1)
-        if len(alphas) % 3 != 0:
+        if len(alphas) != 1 and len(alphas) % 3 != 0:
             raise IndexError(
                 f"{str(self.__class__.__name__)}.alphas length is not divisible by 3."
                 f"Can't identify min, max and step values"
@@ -56,7 +56,7 @@ class XFoil:
         self.names = np.array(name, dtype=str, ndmin=1)
         self.machs = np.array(mach, dtype=float, ndmin=1)
         self.reynolds = np.array(reynolds, dtype=int, ndmin=1)
-        self.alphas = alphas.reshape(-1, 3)
+        self.alphas = alphas.reshape(-1, 3) if len(alphas) > 1 else np.array(alphas, ndmin=2)
         self.save_polar_name = utils.add_prefix_suffix(self._options.get("save_polar_name", None), suffix=".txt")
 
         # Additional parameters available to users to use with xfoil executable
@@ -320,7 +320,6 @@ class XFoil:
 
         # Disabling airfoil plotter from appearing
         if data_dict["disable_graphics"]:
-            print("Disabling graphics")
             input_string.append("plop\n")
             input_string.append("g 0\n")
             input_string.append("\n")
@@ -342,10 +341,14 @@ class XFoil:
         input_string.append(f"{data_dict['polar_name']}\n\n")
 
         # Setting alpha values
-        input_string.append("aseq\n")
-        input_string.append(f"{data_dict['alphas'][0]}\n")
-        input_string.append(f"{data_dict['alphas'][1]}\n")
-        input_string.append(f"{data_dict['alphas'][2]}\n")
+        if (len(data_dict['alphas']) == 3):
+            input_string.append("aseq\n")
+            input_string.append(f"{data_dict['alphas'][0]}\n")
+            input_string.append(f"{data_dict['alphas'][1]}\n")
+            input_string.append(f"{data_dict['alphas'][2]}\n")
+        else:
+            input_string.append("a\n")
+            input_string.append(f"{data_dict['alphas'][0]}\n")
         input_string.append("\nquit\n")
 
         logging.debug(f"Input string is : {input_string}")
