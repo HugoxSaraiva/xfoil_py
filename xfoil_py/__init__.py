@@ -1,2 +1,2 @@
-from xfoil_py.xfoil import XFoil
-from xfoil_py.xfoil import main
+from .xfoil import XFoil
+from .xfoil import main

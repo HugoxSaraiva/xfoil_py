@@ -6,13 +6,13 @@ import itertools
 import concurrent.futures
 import numpy as np
 import subprocess as sp
-import xfoil_py.utils.utils as utils
+from .utils import utils
 from scipy.special import comb
 from contextlib import suppress
 from matplotlib import pyplot as plt
-from xfoil_py.utils.utils import log
-from xfoil_py.definitions import EXEC_DIR
-from xfoil_py.utils.user_options import UserOptions
+from .utils.utils import log
+from .definitions import EXEC_DIR
+from .utils.user_options import UserOptions
 # TODO: use BezierSegment from matplotlib
 
 
@@ -25,7 +25,7 @@ class XFoil:
         "executable_path": EXEC_DIR,
         "save_polar_name": None,
         "process_timeout": 45,
-        "disable_graphics": True
+        "disable_graphics": False
     }
 
     @log("Initializing XFoil class", logging.INFO)
@@ -147,7 +147,8 @@ class XFoil:
                     "alphas": alphas,
                     "panels": panels,
                     "n_crit": n_crit,
-                    "max_iterations": max_iterations
+                    "max_iterations": max_iterations,
+                    "disable_graphics": self._disable_graphics,
                 }
                 run_data.update(constants)
                 # XFoil._worker_run is the method that actually runs the xfoil executable
@@ -315,12 +316,14 @@ class XFoil:
             input_string.append(f"naca {data_dict['name']}\n")
         else:
             input_string.append(f"load {utils.add_prefix_suffix(data_dict['name'], suffix='.dat')}\n")
-            input_string.append(f"{utils.path_leaf(data_dict['name'])}\n")
+            input_string.append(f"name {utils.path_leaf(data_dict['name'])}\n")
 
         # Disabling airfoil plotter from appearing
         if data_dict["disable_graphics"]:
+            print("Disabling graphics")
             input_string.append("plop\n")
-            input_string.append("g 0\n\n")
+            input_string.append("g 0\n")
+            input_string.append("\n")
 
         # Setting number of panels
         input_string.append("ppar\n")
