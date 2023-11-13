@@ -311,6 +311,12 @@ class XFoil:
         :return: string
         """
         input_string = []
+        # Disabling airfoil plotter from appearing
+        if data_dict["disable_graphics"]:
+            input_string.append("plop\n")
+            input_string.append("g 0\n")
+            input_string.append("\n")
+        
         # Check whether to use naca from xfoil or load a dat file
         if XFoil._is_naca(data_dict["name"]):
             input_string.append(f"naca {data_dict['name']}\n")
@@ -318,11 +324,6 @@ class XFoil:
             input_string.append(f"load {utils.add_prefix_suffix(data_dict['name'], suffix='.dat')}\n")
             input_string.append(f"name {utils.path_leaf(data_dict['name'])}\n")
 
-        # Disabling airfoil plotter from appearing
-        if data_dict["disable_graphics"]:
-            input_string.append("plop\n")
-            input_string.append("g 0\n")
-            input_string.append("\n")
 
         # Setting number of panels
         input_string.append("ppar\n")
